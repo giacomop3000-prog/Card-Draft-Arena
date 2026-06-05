@@ -40,6 +40,9 @@ export function Cards() {
         
         <div className="w-full sm:w-auto">
           <ObjectUploader
+            maxNumberOfFiles={50}
+            maxFileSize={20971520}
+            buttonClassName="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
             onGetUploadParameters={async (file) => {
               const res = await fetch("/api/storage/uploads/request-url", {
                 method: "POST",
@@ -51,7 +54,6 @@ export function Cards() {
                 }),
               });
               const { uploadURL, objectPath } = await res.json();
-              // Store object path temporarily on the file object
               (file.meta as any).objectPath = objectPath;
               return {
                 method: "PUT",
@@ -61,17 +63,19 @@ export function Cards() {
             }}
             onComplete={async (result) => {
               if (result.successful && result.successful.length > 0) {
-                // For each successful upload, create a card
                 for (const file of result.successful) {
                   const objectPath = (file.meta as any).objectPath;
-                  const name = file.name.split('.')[0] || "Unnamed Card";
+                  const name = file.name.replace(/\.[^/.]+$/, "") || "Unnamed Card";
                   await createCard.mutateAsync({ data: { name, imageObjectPath: objectPath } });
                 }
-                toast({ title: "Cards uploaded successfully" });
+                toast({ title: `${result.successful.length} card${result.successful.length > 1 ? "s" : ""} uploaded` });
                 queryClient.invalidateQueries({ queryKey: getListCardsQueryKey() });
               }
             }}
-          />
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Upload Cards
+          </ObjectUploader>
         </div>
       </div>
 
