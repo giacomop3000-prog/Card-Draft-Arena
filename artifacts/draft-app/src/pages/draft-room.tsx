@@ -29,40 +29,40 @@ export function DraftRoom() {
     return saved ? parseInt(saved, 10) : null;
   });
 
-  const { data: draft, isLoading: loadingDraft, refetch: refetchDraft } = useGetDraft(draftId, { 
+  const { data: draft, isLoading: loadingDraft } = useGetDraft(draftId, { 
     query: { 
       enabled: !!draftId, 
       queryKey: getGetDraftQueryKey(draftId),
+      // Always poll while the draft is live — catches waiting→active and active→completed transitions
       refetchInterval: (query) => {
-        // Poll draft state if waiting or active and we don't have a seat yet
-        if (!query.state.data) return false;
-        return query.state.data.status !== 'completed' && !seatId ? 3000 : false;
+        if (!query.state.data) return 3000;
+        return query.state.data.status !== 'completed' ? 3000 : false;
       }
     } 
   });
 
-  const { data: seatState, isLoading: loadingSeatState } = useGetSeatState(draftId, seatId || 0, {
+  const draftIsActive = draft?.status === 'active';
+  const draftIsCompleted = draft?.status === 'completed';
+
+  const { data: seatState } = useGetSeatState(draftId, seatId || 0, {
     query: {
-      enabled: !!draftId && !!seatId && draft?.status === 'active',
+      enabled: !!draftId && !!seatId && draftIsActive,
       queryKey: getGetSeatStateQueryKey(draftId, seatId || 0),
-      refetchInterval: (query) => {
-        // Poll aggressively if waiting for pack
-        if (!query.state.data) return 3000;
-        return query.state.data.waitingForPack ? 2000 : false;
-      }
+      // Poll continuously while the draft is active — not just when waiting
+      refetchInterval: draftIsActive ? 2000 : false,
     }
   });
 
   const { data: pool } = useGetPool(draftId, seatId || 0, {
     query: {
-      enabled: !!draftId && !!seatId && draft?.status === 'completed',
+      enabled: !!draftId && !!seatId && draftIsCompleted,
       queryKey: getGetPoolQueryKey(draftId, seatId || 0)
     }
   });
 
   const { data: summary } = useGetDraftSummary(draftId, {
     query: {
-      enabled: !!draftId && draft?.status === 'completed',
+      enabled: !!draftId && draftIsCompleted,
       queryKey: getGetDraftSummaryQueryKey(draftId)
     }
   });
@@ -110,6 +110,8 @@ export function DraftRoom() {
     makePick.mutate({ id: draftId, data: { seatId, cardId } }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetSeatStateQueryKey(draftId, seatId) });
+        // Immediately refresh draft so completed status shows without waiting for the poll
+        queryClient.invalidateQueries({ queryKey: getGetDraftQueryKey(draftId) });
       },
       onError: (err) => {
         toast({ title: "Failed to pick", description: err.error, variant: "destructive" });
