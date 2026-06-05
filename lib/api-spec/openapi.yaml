@@ -3,13 +3,19 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: API specification for Draft App — card library and MTG-style draft
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: cards
+    description: Card library management
+  - name: drafts
+    description: Draft session management
+  - name: Storage
+    description: Object storage upload and serving endpoints.
 paths:
   /healthz:
     get:
@@ -24,6 +30,400 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /cards:
+    get:
+      operationId: listCards
+      tags: [cards]
+      summary: List all cards
+      responses:
+        "200":
+          description: List of cards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Card"
+    post:
+      operationId: createCard
+      tags: [cards]
+      summary: Register an uploaded card image
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CardInput"
+      responses:
+        "201":
+          description: Created card
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Card"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /cards/{id}:
+    delete:
+      operationId: deleteCard
+      tags: [cards]
+      summary: Delete a card
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /drafts:
+    get:
+      operationId: listDrafts
+      tags: [drafts]
+      summary: List all draft sessions
+      responses:
+        "200":
+          description: List of drafts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Draft"
+    post:
+      operationId: createDraft
+      tags: [drafts]
+      summary: Create a new draft session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DraftInput"
+      responses:
+        "201":
+          description: Created draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Draft"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /drafts/{id}:
+    get:
+      operationId: getDraft
+      tags: [drafts]
+      summary: Get draft details with seats
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Draft with seats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DraftDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /drafts/{id}/join:
+    post:
+      operationId: joinDraft
+      tags: [drafts]
+      summary: Join a draft as a player
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinDraftInput"
+      responses:
+        "201":
+          description: Joined — returns seat info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Seat"
+        "400":
+          description: Invalid or draft already started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Draft not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /drafts/{id}/start:
+    post:
+      operationId: startDraft
+      tags: [drafts]
+      summary: Start the draft — distribute cards into packs
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Draft started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DraftDetail"
+        "400":
+          description: Cannot start (wrong state, too few cards, no players)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Draft not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /drafts/{id}/seat/{seatId}:
+    get:
+      operationId: getSeatState
+      tags: [drafts]
+      summary: Get current pack for a seat (what the player sees)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: seatId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Current seat state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeatState"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /drafts/{id}/pick:
+    post:
+      operationId: makePick
+      tags: [drafts]
+      summary: Pick a card from the current pack
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PickInput"
+      responses:
+        "200":
+          description: Pick recorded, returns updated seat state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeatState"
+        "400":
+          description: Invalid pick
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /drafts/{id}/pool/{seatId}:
+    get:
+      operationId: getPool
+      tags: [drafts]
+      summary: Get the full pool of cards picked by a seat
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: seatId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Picked card pool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pool"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /drafts/{id}/summary:
+    get:
+      operationId: getDraftSummary
+      tags: [drafts]
+      summary: Get summary of draft progress across all seats
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Draft progress summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DraftSummary"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadUrlRequest'
+      responses:
+        '200':
+          description: Presigned upload URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUrlResponse'
+        '400':
+          description: Missing or invalid required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: Failed to generate upload URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /storage/public-objects/{filePath}:
+    get:
+      tags: [Storage]
+      operationId: getPublicObject
+      summary: Serve a public asset from PUBLIC_OBJECT_SEARCH_PATHS
+      parameters:
+        - name: filePath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Object content streamed with correct Content-Type.
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: File not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an object entity from PRIVATE_OBJECT_DIR
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Object content streamed with correct Content-Type.
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Object not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +434,213 @@ components:
       required:
         - status
 
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    Card:
+      type: object
+      required: [id, name, imageObjectPath, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        imageObjectPath:
+          type: string
+          description: Path to the stored image (e.g. /objects/uploads/uuid)
+        createdAt:
+          type: string
+          format: date-time
+
+    CardInput:
+      type: object
+      required: [name, imageObjectPath]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        imageObjectPath:
+          type: string
+          minLength: 1
+
+    Draft:
+      type: object
+      required: [id, name, status, numPacks, cardsPerPack, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        status:
+          type: string
+          enum: [waiting, active, completed]
+        numPacks:
+          type: integer
+        cardsPerPack:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    DraftInput:
+      type: object
+      required: [name, numPacks, cardsPerPack]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        numPacks:
+          type: integer
+          minimum: 1
+        cardsPerPack:
+          type: integer
+          minimum: 1
+
+    Seat:
+      type: object
+      required: [id, draftId, playerName, seatPosition, joinedAt]
+      properties:
+        id:
+          type: integer
+        draftId:
+          type: integer
+        playerName:
+          type: string
+        seatPosition:
+          type: integer
+        joinedAt:
+          type: string
+          format: date-time
+
+    JoinDraftInput:
+      type: object
+      required: [playerName]
+      properties:
+        playerName:
+          type: string
+          minLength: 1
+
+    DraftDetail:
+      type: object
+      required: [id, name, status, numPacks, cardsPerPack, createdAt, seats]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        status:
+          type: string
+          enum: [waiting, active, completed]
+        numPacks:
+          type: integer
+        cardsPerPack:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        seats:
+          type: array
+          items:
+            $ref: "#/components/schemas/Seat"
+
+    SeatState:
+      type: object
+      required: [seat, currentPack, packNumber, picksDone, totalPicks, draftStatus]
+      properties:
+        seat:
+          $ref: "#/components/schemas/Seat"
+        currentPack:
+          type: array
+          items:
+            $ref: "#/components/schemas/Card"
+          description: Cards remaining in the current pack (empty if waiting for pack to arrive or draft done)
+        packNumber:
+          type: integer
+          description: Which pack number is currently being drafted (1-based)
+        picksDone:
+          type: integer
+          description: Total picks this seat has made
+        totalPicks:
+          type: integer
+          description: Total picks this seat needs to make (numPacks * cardsPerPack)
+        draftStatus:
+          type: string
+          enum: [waiting, active, completed]
+        waitingForPack:
+          type: boolean
+          description: True when this seat has picked but is waiting for the passed pack to arrive
+
+    PickInput:
+      type: object
+      required: [seatId, cardId]
+      properties:
+        seatId:
+          type: integer
+        cardId:
+          type: integer
+
+    Pool:
+      type: object
+      required: [seat, cards]
+      properties:
+        seat:
+          $ref: "#/components/schemas/Seat"
+        cards:
+          type: array
+          items:
+            $ref: "#/components/schemas/Card"
+
+    SeatSummary:
+      type: object
+      required: [seat, picksDone, waitingForPack]
+      properties:
+        seat:
+          $ref: "#/components/schemas/Seat"
+        picksDone:
+          type: integer
+        waitingForPack:
+          type: boolean
+
+    DraftSummary:
+      type: object
+      required: [draft, totalPicksMade, totalPicksNeeded, seatSummaries]
+      properties:
+        draft:
+          $ref: "#/components/schemas/Draft"
+        totalPicksMade:
+          type: integer
+        totalPicksNeeded:
+          type: integer
+        seatSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/SeatSummary"
+
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        size:
+          type: integer
+          minimum: 1
+        contentType:
+          type: string
+          minLength: 1
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+        objectPath:
+          type: string
+        metadata:
+          $ref: '#/components/schemas/UploadUrlRequest'
