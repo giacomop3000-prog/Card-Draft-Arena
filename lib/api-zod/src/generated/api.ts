@@ -104,6 +104,14 @@ export const GetDraftResponse = zod.object({
 
 
 /**
+ * @summary Delete a draft and all associated data
+ */
+export const DeleteDraftParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
  * @summary Join a draft as a player
  */
 export const JoinDraftParams = zod.object({

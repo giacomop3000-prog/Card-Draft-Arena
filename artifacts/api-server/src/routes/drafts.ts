@@ -73,6 +73,21 @@ router.get("/drafts/:id", async (req, res): Promise<void> => {
   res.json(GetDraftResponse.parse({ ...draft, seats }));
 });
 
+// Delete a draft (and all associated data via cascade)
+router.delete("/drafts/:id", async (req, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(rawId, 10);
+
+  const [draft] = await db.select().from(draftsTable).where(eq(draftsTable.id, id));
+  if (!draft) {
+    res.status(404).json({ error: "Draft not found" });
+    return;
+  }
+
+  await db.delete(draftsTable).where(eq(draftsTable.id, id));
+  res.status(204).end();
+});
+
 // Join a draft
 router.post("/drafts/:id/join", async (req, res): Promise<void> => {
   const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;

@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { useListDrafts, getListDraftsQueryKey, useCreateDraft } from "@workspace/api-client-react";
+import { useListDrafts, getListDraftsQueryKey, useCreateDraft, useDeleteDraft } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Dialog, DialogContent, Card as DialogCard, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Users, Layers, PlaySquare, Clock, CheckCircle2 } from "lucide-react";
+import { Plus, Users, Layers, PlaySquare, Clock, CheckCircle2, Trash2 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,7 +28,9 @@ export function Drafts() {
   const [, setLocation] = useLocation();
   const { data: drafts, isLoading } = useListDrafts({ query: { queryKey: getListDraftsQueryKey() } });
   const createDraft = useCreateDraft();
+  const deleteDraft = useDeleteDraft();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
 
   const form = useForm<z.infer<typeof createDraftSchema>>({
     resolver: zodResolver(createDraftSchema),
@@ -48,8 +50,23 @@ export function Drafts() {
         setLocation(`/drafts/${newDraft.id}`);
       },
       onError: (err) => {
-        toast({ title: "Failed to create draft", description: err.error, variant: "destructive" });
+        toast({ title: "Failed to create draft", description: String(err), variant: "destructive" });
       }
+    });
+  };
+
+  const confirmDelete = () => {
+    if (deleteTargetId === null) return;
+    deleteDraft.mutate({ id: deleteTargetId }, {
+      onSuccess: () => {
+        toast({ title: "Draft deleted" });
+        queryClient.invalidateQueries({ queryKey: getListDraftsQueryKey() });
+        setDeleteTargetId(null);
+      },
+      onError: () => {
+        toast({ title: "Failed to delete draft", variant: "destructive" });
+        setDeleteTargetId(null);
+      },
     });
   };
 
@@ -58,6 +75,8 @@ export function Drafts() {
     active: { icon: PlaySquare, color: "text-green-500", bg: "bg-green-500/10", border: "border-green-500/20" },
     completed: { icon: CheckCircle2, color: "text-blue-500", bg: "bg-blue-500/10", border: "border-blue-500/20" },
   };
+
+  const deleteTargetName = drafts?.find(d => d.id === deleteTargetId)?.name;
 
   return (
     <div className="space-y-6">
@@ -163,12 +182,23 @@ export function Drafts() {
             return (
               <Card key={draft.id} className={`bg-card/80 border transition-all hover:border-primary/50 flex flex-col`}>
                 <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg line-clamp-1" title={draft.name}>{draft.name}</CardTitle>
-                    <Badge variant="outline" className={`${statusConfig[draft.status].bg} ${statusConfig[draft.status].color} ${statusConfig[draft.status].border} font-medium capitalize`}>
-                      <StatusIcon className="h-3 w-3 mr-1" />
-                      {draft.status}
-                    </Badge>
+                  <div className="flex justify-between items-start gap-2">
+                    <CardTitle className="text-lg line-clamp-1 flex-1" title={draft.name}>{draft.name}</CardTitle>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant="outline" className={`${statusConfig[draft.status].bg} ${statusConfig[draft.status].color} ${statusConfig[draft.status].border} font-medium capitalize`}>
+                        <StatusIcon className="h-3 w-3 mr-1" />
+                        {draft.status}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        onClick={(e) => { e.preventDefault(); setDeleteTargetId(draft.id); }}
+                        data-testid={`button-delete-draft-${draft.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   <CardDescription className="text-xs">
                     Created {new Date(draft.createdAt).toLocaleDateString()}
@@ -198,6 +228,27 @@ export function Drafts() {
           })}
         </div>
       )}
+
+      <AlertDialog open={deleteTargetId !== null} onOpenChange={(open) => { if (!open) setDeleteTargetId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{deleteTargetName}</strong> and all its picks and packs will be permanently deleted. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleteDraft.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteDraft.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

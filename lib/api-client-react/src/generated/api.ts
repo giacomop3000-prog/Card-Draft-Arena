@@ -570,6 +570,76 @@ export function useGetDraft<TData = Awaited<ReturnType<typeof getDraft>>, TError
 
 
 
+export const getDeleteDraftUrl = (id: number,) => {
+
+
+
+
+  return `/api/drafts/${id}`
+}
+
+/**
+ * @summary Delete a draft and all associated data
+ */
+export const deleteDraft = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteDraftUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteDraftMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDraft>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteDraft>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteDraft'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteDraft>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteDraft(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteDraftMutationResult = NonNullable<Awaited<ReturnType<typeof deleteDraft>>>
+
+    export type DeleteDraftMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Delete a draft and all associated data
+ */
+export const useDeleteDraft = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDraft>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteDraft>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteDraftMutationOptions(options));
+    }
+
 export const getJoinDraftUrl = (id: number,) => {
 
 
