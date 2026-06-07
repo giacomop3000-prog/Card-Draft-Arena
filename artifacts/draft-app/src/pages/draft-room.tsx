@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useParams } from "wouter";
 import { 
   useGetDraft, getGetDraftQueryKey, 
@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Users, User, Play, Clock, Layers, CheckCircle2, ChevronRight } from "lucide-react";
+import { Users, User, Play, Clock, Layers, CheckCircle2, ChevronRight, ChevronLeft, X, ZoomIn } from "lucide-react";
 
 export function DraftRoom() {
   const { id } = useParams<{ id: string }>();
@@ -72,6 +72,34 @@ export function DraftRoom() {
   const makePick = useMakePick();
   
   const [playerName, setPlayerName] = useState("");
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const lightboxPack = seatState?.currentPack ?? [];
+  const lightboxCard = lightboxIndex !== null ? lightboxPack[lightboxIndex] : null;
+
+  const closeLightbox = useCallback(() => setLightboxIndex(null), []);
+  const prevCard = useCallback(() =>
+    setLightboxIndex(i => (i !== null && lightboxPack.length > 0 ? (i - 1 + lightboxPack.length) % lightboxPack.length : i)),
+    [lightboxPack.length]);
+  const nextCard = useCallback(() =>
+    setLightboxIndex(i => (i !== null && lightboxPack.length > 0 ? (i + 1) % lightboxPack.length : i)),
+    [lightboxPack.length]);
+
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft")  { e.preventDefault(); prevCard(); }
+      if (e.key === "ArrowRight") { e.preventDefault(); nextCard(); }
+      if (e.key === "Escape")     { e.preventDefault(); closeLightbox(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxIndex, prevCard, nextCard, closeLightbox]);
+
+  // Close lightbox automatically when the pack changes (user picked or new pack arrived)
+  useEffect(() => {
+    setLightboxIndex(null);
+  }, [seatState?.currentPackId]);
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -275,13 +303,13 @@ export function DraftRoom() {
                 <Badge variant="secondary">{seatState.currentPack.length} cards</Badge>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {seatState.currentPack.map((card) => (
+                {seatState.currentPack.map((card, idx) => (
                   <button
                     key={card.id}
-                    onClick={() => handlePick(card.id, seatState.currentPackId!)}
+                    onClick={() => setLightboxIndex(idx)}
                     disabled={makePick.isPending || !seatState.currentPackId}
                     className="group relative rounded-md overflow-hidden bg-secondary aspect-[2.5/3.5] border-2 border-transparent transition-all hover:border-primary hover:scale-[1.02] focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/50 text-left"
-                    data-testid={`button-pick-${card.id}`}
+                    data-testid={`button-view-${card.id}`}
                   >
                     <img 
                       src={`/api/storage${card.imageObjectPath}`} 
@@ -289,9 +317,9 @@ export function DraftRoom() {
                       className="absolute inset-0 w-full h-full object-cover"
                       loading="lazy"
                     />
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <div className="bg-primary text-primary-foreground px-4 py-2 rounded-full font-medium flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
-                        Pick Card <ChevronRight className="h-4 w-4" />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <div className="bg-white/10 backdrop-blur-sm border border-white/20 text-white px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-1.5 transform translate-y-3 group-hover:translate-y-0 transition-transform">
+                        <ZoomIn className="h-3.5 w-3.5" /> View
                       </div>
                     </div>
                   </button>
@@ -358,6 +386,75 @@ export function DraftRoom() {
               </Card>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Card Lightbox */}
+      {lightboxCard && lightboxIndex !== null && seatState && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+          onClick={closeLightbox}
+        >
+          {/* Close */}
+          <button
+            className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+            onClick={closeLightbox}
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          {/* Counter */}
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white/60 text-sm font-medium tabular-nums">
+            {lightboxIndex + 1} / {lightboxPack.length}
+          </div>
+
+          {/* Prev arrow */}
+          <button
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-3 transition-colors disabled:opacity-30"
+            onClick={(e) => { e.stopPropagation(); prevCard(); }}
+            disabled={lightboxPack.length <= 1}
+            aria-label="Previous card"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+
+          {/* Card image */}
+          <div
+            className="flex flex-col items-center gap-6 px-20"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={`/api/storage${lightboxCard.imageObjectPath}`}
+              alt={lightboxCard.name}
+              className="max-h-[75vh] max-w-[min(420px,80vw)] w-auto object-contain rounded-xl shadow-2xl"
+            />
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-white font-semibold text-lg">{lightboxCard.name}</p>
+              <Button
+                size="lg"
+                className="px-10"
+                disabled={makePick.isPending || !seatState.currentPackId}
+                onClick={() => {
+                  handlePick(lightboxCard.id, seatState.currentPackId!);
+                  closeLightbox();
+                }}
+                data-testid={`button-pick-${lightboxCard.id}`}
+              >
+                Pick this card <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Next arrow */}
+          <button
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-3 transition-colors disabled:opacity-30"
+            onClick={(e) => { e.stopPropagation(); nextCard(); }}
+            disabled={lightboxPack.length <= 1}
+            aria-label="Next card"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
         </div>
       )}
     </div>
