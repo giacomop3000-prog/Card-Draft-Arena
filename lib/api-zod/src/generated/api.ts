@@ -164,6 +164,7 @@ export const GetSeatStateResponse = zod.object({
   "imageObjectPath": zod.string().describe('Path to the stored image (e.g. \/objects\/uploads\/uuid)'),
   "createdAt": zod.coerce.date()
 })).describe('Cards remaining in the current pack (empty if waiting for pack to arrive or draft done)'),
+  "currentPackId": zod.number().optional().describe('The ID of the pack currently shown (present when currentPack is non-empty)'),
   "packNumber": zod.number().describe('Which pack number is currently being drafted (1-based)'),
   "picksDone": zod.number().describe('Total picks this seat has made'),
   "totalPicks": zod.number().describe('Total picks this seat needs to make (numPacks \* cardsPerPack)'),
@@ -181,7 +182,8 @@ export const MakePickParams = zod.object({
 
 export const MakePickBody = zod.object({
   "seatId": zod.number(),
-  "cardId": zod.number()
+  "cardId": zod.number(),
+  "packId": zod.number().describe('The specific pack ID being picked from (must match the pack currently assigned to the seat)')
 })
 
 export const MakePickResponse = zod.object({
@@ -198,6 +200,7 @@ export const MakePickResponse = zod.object({
   "imageObjectPath": zod.string().describe('Path to the stored image (e.g. \/objects\/uploads\/uuid)'),
   "createdAt": zod.coerce.date()
 })).describe('Cards remaining in the current pack (empty if waiting for pack to arrive or draft done)'),
+  "currentPackId": zod.number().optional().describe('The ID of the pack currently shown (present when currentPack is non-empty)'),
   "packNumber": zod.number().describe('Which pack number is currently being drafted (1-based)'),
   "picksDone": zod.number().describe('Total picks this seat has made'),
   "totalPicks": zod.number().describe('Total picks this seat needs to make (numPacks \* cardsPerPack)'),

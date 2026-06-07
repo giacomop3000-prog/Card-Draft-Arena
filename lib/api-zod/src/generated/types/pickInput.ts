@@ -9,4 +9,6 @@
 export interface PickInput {
   seatId: number;
   cardId: number;
+  /** The specific pack ID being picked from (must match the pack currently assigned to the seat) */
+  packId: number;
 }

@@ -268,6 +268,7 @@ router.get("/drafts/:id/seat/:seatId", async (req, res): Promise<void> => {
   res.json(GetSeatStateResponse.parse({
     seat,
     currentPack,
+    currentPackId: packRow.id,
     packNumber: currentPackNum,
     picksDone,
     totalPicks,
@@ -298,7 +299,7 @@ router.post("/drafts/:id/pick", async (req, res): Promise<void> => {
     return;
   }
 
-  const { seatId, cardId } = parsed.data;
+  const { seatId, cardId, packId } = parsed.data;
 
   const [seat] = await db.select().from(seatsTable).where(eq(seatsTable.id, seatId));
   if (!seat) {
@@ -306,53 +307,61 @@ router.post("/drafts/:id/pick", async (req, res): Promise<void> => {
     return;
   }
 
-  // Find the current pack for this seat
-  const [packRow] = await db
-    .select()
-    .from(packsTable)
-    .where(and(eq(packsTable.draftId, draftId), eq(packsTable.currentSeatId, seatId)))
-    .orderBy(packsTable.packNumber, packsTable.id)
-    .limit(1);
-
-  if (!packRow) {
-    res.status(400).json({ error: "No pack available for this seat" });
-    return;
-  }
-
-  const cardIds: number[] = JSON.parse(packRow.cardIds);
-  if (!cardIds.includes(cardId)) {
-    res.status(400).json({ error: "Card not in current pack" });
-    return;
-  }
-
-  // Record the pick
-  await db.insert(picksTable).values({
-    draftId,
-    seatId,
-    cardId,
-    packId: packRow.id,
-  });
-
-  // Remove the picked card from the pack
-  const remaining = cardIds.filter(id => id !== cardId);
-
   const seats = await db.select().from(seatsTable).where(eq(seatsTable.draftId, draftId)).orderBy(seatsTable.seatPosition);
   const numSeats = seats.length;
 
-  if (remaining.length === 0) {
-    // Pack is exhausted — remove it
-    await db.delete(packsTable).where(eq(packsTable.id, packRow.id));
-  } else {
-    // Pass the pack to the next seat (direction alternates by pack number: odd=left, even=right)
-    const direction = packRow.packNumber % 2 === 1 ? 1 : -1;
-    const currentSeatIdx = seats.findIndex(s => s.id === seatId);
-    const nextSeatIdx = ((currentSeatIdx + direction) + numSeats) % numSeats;
-    const nextSeatId = seats[nextSeatIdx].id;
+  // Atomic: lock the exact pack the client saw, validate, pick, and pass — all in one transaction.
+  // FOR UPDATE prevents a second concurrent request for the same seat from double-picking.
+  type PickTxResult =
+    | { ok: true }
+    | { ok: false; code: number; error: string };
+  let txResult: PickTxResult = { ok: false, code: 400, error: "Pick failed" };
 
-    await db.update(packsTable).set({
-      currentSeatId: nextSeatId,
-      cardIds: JSON.stringify(remaining),
-    }).where(eq(packsTable.id, packRow.id));
+  await db.transaction(async (tx) => {
+    // Lock the specific pack row the client was looking at
+    const [packRow] = await tx
+      .select()
+      .from(packsTable)
+      .where(and(
+        eq(packsTable.id, packId),
+        eq(packsTable.draftId, draftId),
+        eq(packsTable.currentSeatId, seatId),
+      ))
+      .for("update");
+
+    if (!packRow) {
+      txResult = { ok: false, code: 400, error: "Pack no longer available for this seat" };
+      return;
+    }
+
+    const cardIds: number[] = JSON.parse(packRow.cardIds);
+    if (!cardIds.includes(cardId)) {
+      txResult = { ok: false, code: 400, error: "Card not in current pack" };
+      return;
+    }
+
+    await tx.insert(picksTable).values({ draftId, seatId, cardId, packId });
+
+    const remaining = cardIds.filter(id => id !== cardId);
+    if (remaining.length === 0) {
+      await tx.delete(packsTable).where(eq(packsTable.id, packId));
+    } else {
+      const direction = packRow.packNumber % 2 === 1 ? 1 : -1;
+      const currentSeatIdx = seats.findIndex(s => s.id === seatId);
+      const nextSeatIdx = ((currentSeatIdx + direction) + numSeats) % numSeats;
+      const nextSeatId = seats[nextSeatIdx].id;
+      await tx.update(packsTable).set({
+        currentSeatId: nextSeatId,
+        cardIds: JSON.stringify(remaining),
+      }).where(eq(packsTable.id, packId));
+    }
+
+    txResult = { ok: true };
+  });
+
+  if (!txResult.ok) {
+    res.status(txResult.code).json({ error: txResult.error });
+    return;
   }
 
   // Check if the whole draft is now done
@@ -385,6 +394,8 @@ router.post("/drafts/:id/pick", async (req, res): Promise<void> => {
   let packNumber = Math.min(Math.floor(picksDone / draft.cardsPerPack) + 1, draft.numPacks);
   let waitingForPack = false;
 
+  let currentPackId: number | undefined;
+
   if (newPackRow.length) {
     const newCardIds: number[] = JSON.parse(newPackRow[0].cardIds);
     if (newCardIds.length > 0) {
@@ -393,6 +404,7 @@ router.post("/drafts/:id/pick", async (req, res): Promise<void> => {
       currentPack = newCardIds.map(id => cardMap.get(id)).filter(Boolean) as typeof cardsTable.$inferSelect[];
     }
     packNumber = newPackRow[0].packNumber;
+    currentPackId = newPackRow[0].id;
   } else if (draftStatus === "active" && allPicksMade < totalPicksNeeded) {
     waitingForPack = true;
   }
@@ -400,6 +412,7 @@ router.post("/drafts/:id/pick", async (req, res): Promise<void> => {
   res.json(MakePickResponse.parse({
     seat,
     currentPack,
+    currentPackId,
     packNumber,
     picksDone,
     totalPicks,

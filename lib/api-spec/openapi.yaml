@@ -558,6 +558,9 @@ components:
           items:
             $ref: "#/components/schemas/Card"
           description: Cards remaining in the current pack (empty if waiting for pack to arrive or draft done)
+        currentPackId:
+          type: integer
+          description: The ID of the pack currently shown (present when currentPack is non-empty)
         packNumber:
           type: integer
           description: Which pack number is currently being drafted (1-based)
@@ -576,12 +579,15 @@ components:
 
     PickInput:
       type: object
-      required: [seatId, cardId]
+      required: [seatId, cardId, packId]
       properties:
         seatId:
           type: integer
         cardId:
           type: integer
+        packId:
+          type: integer
+          description: The specific pack ID being picked from (must match the pack currently assigned to the seat)
 
     Pool:
       type: object

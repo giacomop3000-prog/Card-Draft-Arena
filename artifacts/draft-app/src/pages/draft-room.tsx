@@ -105,9 +105,9 @@ export function DraftRoom() {
     });
   };
 
-  const handlePick = (cardId: number) => {
+  const handlePick = (cardId: number, packId: number) => {
     if (!seatId) return;
-    makePick.mutate({ id: draftId, data: { seatId, cardId } }, {
+    makePick.mutate({ id: draftId, data: { seatId, cardId, packId } }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetSeatStateQueryKey(draftId, seatId) });
         // Immediately refresh draft so completed status shows without waiting for the poll
@@ -278,8 +278,8 @@ export function DraftRoom() {
                 {seatState.currentPack.map((card) => (
                   <button
                     key={card.id}
-                    onClick={() => handlePick(card.id)}
-                    disabled={makePick.isPending}
+                    onClick={() => handlePick(card.id, seatState.currentPackId!)}
+                    disabled={makePick.isPending || !seatState.currentPackId}
                     className="group relative rounded-md overflow-hidden bg-secondary aspect-[2.5/3.5] border-2 border-transparent transition-all hover:border-primary hover:scale-[1.02] focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/50 text-left"
                     data-testid={`button-pick-${card.id}`}
                   >

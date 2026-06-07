@@ -100,6 +100,8 @@ export interface SeatState {
   seat: Seat;
   /** Cards remaining in the current pack (empty if waiting for pack to arrive or draft done) */
   currentPack: Card[];
+  /** The ID of the pack currently shown (present when currentPack is non-empty) */
+  currentPackId?: number;
   /** Which pack number is currently being drafted (1-based) */
   packNumber: number;
   /** Total picks this seat has made */
@@ -114,6 +116,8 @@ export interface SeatState {
 export interface PickInput {
   seatId: number;
   cardId: number;
+  /** The specific pack ID being picked from (must match the pack currently assigned to the seat) */
+  packId: number;
 }
 
 export interface Pool {
