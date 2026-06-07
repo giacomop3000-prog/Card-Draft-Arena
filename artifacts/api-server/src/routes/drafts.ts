@@ -212,7 +212,7 @@ router.get("/drafts/:id/seat/:seatId", async (req, res): Promise<void> => {
     .select()
     .from(packsTable)
     .where(and(eq(packsTable.draftId, draftId), eq(packsTable.currentSeatId, seatId)))
-    .orderBy(packsTable.packNumber)
+    .orderBy(packsTable.packNumber, packsTable.id)
     .limit(1);
 
   if (!currentPackRow.length) {
@@ -311,7 +311,7 @@ router.post("/drafts/:id/pick", async (req, res): Promise<void> => {
     .select()
     .from(packsTable)
     .where(and(eq(packsTable.draftId, draftId), eq(packsTable.currentSeatId, seatId)))
-    .orderBy(packsTable.packNumber)
+    .orderBy(packsTable.packNumber, packsTable.id)
     .limit(1);
 
   if (!packRow) {
@@ -378,7 +378,7 @@ router.post("/drafts/:id/pick", async (req, res): Promise<void> => {
     .select()
     .from(packsTable)
     .where(and(eq(packsTable.draftId, draftId), eq(packsTable.currentSeatId, seatId)))
-    .orderBy(packsTable.packNumber)
+    .orderBy(packsTable.packNumber, packsTable.id)
     .limit(1);
 
   let currentPack: typeof cardsTable.$inferSelect[] = [];
