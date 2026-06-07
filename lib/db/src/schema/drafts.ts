@@ -47,7 +47,7 @@ export const picksTable = pgTable("draft_picks", {
   draftId: integer("draft_id").notNull().references(() => draftsTable.id, { onDelete: "cascade" }),
   seatId: integer("seat_id").notNull().references(() => seatsTable.id),
   cardId: integer("card_id").notNull(),
-  packId: integer("pack_id").notNull().references(() => packsTable.id),
+  packId: integer("pack_id").notNull(),
   pickedAt: timestamp("picked_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
