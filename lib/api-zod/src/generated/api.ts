@@ -245,6 +245,32 @@ export const GetPoolResponse = zod.object({
 
 
 /**
+ * @summary Get every seat's picked card pool for a completed draft
+ */
+export const GetAllPoolsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetAllPoolsResponse = zod.object({
+  "seatPools": zod.array(zod.object({
+  "seat": zod.object({
+  "id": zod.number(),
+  "draftId": zod.number(),
+  "playerName": zod.string(),
+  "seatPosition": zod.number(),
+  "joinedAt": zod.coerce.date()
+}),
+  "cards": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "imageObjectPath": zod.string().describe('Path to the stored image (e.g. \/objects\/uploads\/uuid)'),
+  "createdAt": zod.coerce.date()
+}))
+}))
+})
+
+
+/**
  * @summary Get summary of draft progress across all seats
  */
 export const GetDraftSummaryParams = zod.object({

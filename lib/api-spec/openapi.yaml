@@ -68,13 +68,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-    delete:
-      operationId: deleteAllCards
-      tags: [cards]
-      summary: Delete all cards from the library
-      responses:
-        "204":
-          description: All cards deleted
 
   /cards/{id}:
     delete:
@@ -337,6 +330,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Pool"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /drafts/{id}/all-pools:
+    get:
+      operationId: getAllPools
+      tags: [drafts]
+      summary: Get every seat's picked card pool for a completed draft
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: All pools
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [seatPools]
+                properties:
+                  seatPools:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Pool"
         "404":
           description: Not found
           content:

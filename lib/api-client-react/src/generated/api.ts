@@ -27,6 +27,7 @@ import type {
   DraftInput,
   DraftSummary,
   ErrorEnvelope,
+  GetAllPools200,
   HealthStatus,
   JoinDraftInput,
   PickInput,
@@ -273,76 +274,6 @@ export const useCreateCard = <TError = ErrorType<ErrorEnvelope>,
         TContext
       > => {
       return useMutation(getCreateCardMutationOptions(options));
-    }
-
-export const getDeleteAllCardsUrl = () => {
-
-
-
-
-  return `/api/cards`
-}
-
-/**
- * @summary Delete all cards from the library
- */
-export const deleteAllCards = async ( options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getDeleteAllCardsUrl(),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
-
-
-
-
-export const getDeleteAllCardsMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAllCards>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteAllCards>>, TError,void, TContext> => {
-
-const mutationKey = ['deleteAllCards'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAllCards>>, void> = () => {
-
-
-          return  deleteAllCards(requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteAllCardsMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAllCards>>>
-
-    export type DeleteAllCardsMutationError = ErrorType<unknown>
-
-    /**
- * @summary Delete all cards from the library
- */
-export const useDeleteAllCards = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAllCards>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteAllCards>>,
-        TError,
-        void,
-        TContext
-      > => {
-      return useMutation(getDeleteAllCardsMutationOptions(options));
     }
 
 export const getDeleteCardUrl = (id: number,) => {
@@ -1076,6 +1007,83 @@ export function useGetPool<TData = Awaited<ReturnType<typeof getPool>>, TError =
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetPoolQueryOptions(id,seatId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetAllPoolsUrl = (id: number,) => {
+
+
+
+
+  return `/api/drafts/${id}/all-pools`
+}
+
+/**
+ * @summary Get every seat's picked card pool for a completed draft
+ */
+export const getAllPools = async (id: number, options?: RequestInit): Promise<GetAllPools200> => {
+
+  return customFetch<GetAllPools200>(getGetAllPoolsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAllPoolsQueryKey = (id: number,) => {
+    return [
+    `/api/drafts/${id}/all-pools`
+    ] as const;
+    }
+
+
+export const getGetAllPoolsQueryOptions = <TData = Awaited<ReturnType<typeof getAllPools>>, TError = ErrorType<ErrorEnvelope>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAllPools>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAllPoolsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAllPools>>> = ({ signal }) => getAllPools(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAllPools>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAllPoolsQueryResult = NonNullable<Awaited<ReturnType<typeof getAllPools>>>
+export type GetAllPoolsQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Get every seat's picked card pool for a completed draft
+ */
+
+export function useGetAllPools<TData = Awaited<ReturnType<typeof getAllPools>>, TError = ErrorType<ErrorEnvelope>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAllPools>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAllPoolsQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

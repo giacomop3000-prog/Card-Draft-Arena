@@ -502,6 +502,34 @@ router.get("/drafts/:id/pool/:seatId", async (req, res): Promise<void> => {
   res.json(GetPoolResponse.parse({ seat, cards }));
 });
 
+// Get all seats' pools (publicly visible for completed drafts)
+router.get("/drafts/:id/all-pools", async (req, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const draftId = parseInt(rawId, 10);
+
+  const [draft] = await db.select().from(draftsTable).where(eq(draftsTable.id, draftId));
+  if (!draft) {
+    res.status(404).json({ error: "Draft not found" });
+    return;
+  }
+
+  const seats = await db.select().from(seatsTable).where(eq(seatsTable.draftId, draftId)).orderBy(seatsTable.seatPosition);
+
+  const seatPools = await Promise.all(seats.map(async (seat) => {
+    const picks = await db.select().from(picksTable).where(and(eq(picksTable.draftId, draftId), eq(picksTable.seatId, seat.id))).orderBy(picksTable.pickedAt);
+    const cardIds = picks.map(p => p.cardId);
+    let cards: typeof cardsTable.$inferSelect[] = [];
+    if (cardIds.length > 0) {
+      const fetched = await db.select().from(cardsTable).where(inArray(cardsTable.id, cardIds));
+      const cardMap = new Map(fetched.map(c => [c.id, c]));
+      cards = cardIds.map(id => cardMap.get(id)).filter(Boolean) as typeof cardsTable.$inferSelect[];
+    }
+    return { seat, cards };
+  }));
+
+  res.json({ seatPools });
+});
+
 // Get draft summary
 router.get("/drafts/:id/summary", async (req, res): Promise<void> => {
   const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;

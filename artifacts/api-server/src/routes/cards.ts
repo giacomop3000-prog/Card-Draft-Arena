@@ -25,11 +25,6 @@ router.post("/cards", async (req, res): Promise<void> => {
   res.status(201).json(card);
 });
 
-router.delete("/cards", async (_req, res): Promise<void> => {
-  await db.delete(cardsTable);
-  res.sendStatus(204);
-});
-
 router.delete("/cards/:id", async (req, res): Promise<void> => {
   const params = DeleteCardParams.safeParse(req.params);
   if (!params.success) {

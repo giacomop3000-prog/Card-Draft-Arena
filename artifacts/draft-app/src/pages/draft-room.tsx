@@ -6,7 +6,7 @@ import {
   useStartDraft,
   useGetSeatState, getGetSeatStateQueryKey,
   useMakePick,
-  useGetPool, getGetPoolQueryKey,
+  useGetAllPools, getGetAllPoolsQueryKey,
   useGetDraftSummary, getGetDraftSummaryQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -53,10 +53,10 @@ export function DraftRoom() {
     }
   });
 
-  const { data: pool } = useGetPool(draftId, seatId || 0, {
+  const { data: allPools } = useGetAllPools(draftId, {
     query: {
-      enabled: !!draftId && !!seatId && draftIsCompleted,
-      queryKey: getGetPoolQueryKey(draftId, seatId || 0)
+      enabled: !!draftId && draftIsCompleted,
+      queryKey: getGetAllPoolsQueryKey(draftId)
     }
   });
 
@@ -66,6 +66,8 @@ export function DraftRoom() {
       queryKey: getGetDraftSummaryQueryKey(draftId)
     }
   });
+
+  const [selectedSeatId, setSelectedSeatId] = useState<number | null>(null);
 
   const joinDraft = useJoinDraft();
   const startDraft = useStartDraft();
@@ -343,63 +345,66 @@ export function DraftRoom() {
       )}
 
       {/* Completed Phase */}
-      {draft.status === 'completed' && pool && summary && (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
-          <Card className="bg-primary/5 border-primary/20">
-            <CardContent className="py-6">
-              <div className="flex items-center justify-center gap-3 mb-2 text-primary">
-                <CheckCircle2 className="h-8 w-8" />
-                <h2 className="text-2xl font-bold">Draft Complete!</h2>
-              </div>
-              <p className="text-center text-muted-foreground">All packs have been drafted.</p>
-            </CardContent>
-          </Card>
+      {draft.status === 'completed' && allPools && summary && (() => {
+        const viewingSeatId = selectedSeatId ?? allPools.seatPools[0]?.seat.id ?? null;
+        const viewingPool = allPools.seatPools.find(p => p.seat.id === viewingSeatId);
+        return (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="py-6">
+                <div className="flex items-center justify-center gap-3 mb-2 text-primary">
+                  <CheckCircle2 className="h-8 w-8" />
+                  <h2 className="text-2xl font-bold">Draft Complete!</h2>
+                </div>
+                <p className="text-center text-muted-foreground">All packs have been drafted.</p>
+              </CardContent>
+            </Card>
 
-          <div className="grid md:grid-cols-[1fr_300px] gap-8">
-            <div>
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Layers className="h-5 w-5" /> Your Pool ({pool.cards.length} cards)
-              </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {pool.cards.map((card, i) => (
-                  <div key={`${card.id}-${i}`} className="rounded-md overflow-hidden bg-secondary aspect-[2.5/3.5] border border-border">
-                    <img 
-                      src={`/api/storage${card.imageObjectPath}`} 
-                      alt={card.name}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  </div>
-                ))}
-              </div>
+            {/* Player tabs */}
+            <div className="flex flex-wrap gap-2">
+              {allPools.seatPools.map((sp) => (
+                <button
+                  key={sp.seat.id}
+                  onClick={() => setSelectedSeatId(sp.seat.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    sp.seat.id === viewingSeatId
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card border-border hover:border-primary/50 hover:bg-secondary/50"
+                  }`}
+                >
+                  <User className="h-3.5 w-3.5" />
+                  {sp.seat.playerName}
+                  {sp.seat.id === seatId && <Badge variant={sp.seat.id === viewingSeatId ? "outline" : "secondary"} className="text-[10px] ml-1">You</Badge>}
+                  <span className="ml-1 opacity-60 text-xs">({sp.cards.length})</span>
+                </button>
+              ))}
             </div>
 
-            <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Final Standings</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3">
-                    {summary.seatSummaries.map((s, i) => (
-                      <li key={s.seat.id} className="flex flex-col gap-1 pb-3 border-b border-border/50 last:border-0 last:pb-0">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium flex items-center gap-2">
-                            {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i+1}.`}
-                            {s.seat.playerName}
-                            {s.seat.id === seatId && <Badge variant="outline" className="ml-1 text-[10px]">You</Badge>}
-                          </span>
-                          <span className="text-sm font-bold text-primary">{s.picksDone} picks</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            </div>
+            {/* Selected player's pool */}
+            {viewingPool && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Layers className="h-5 w-5" />
+                  {viewingPool.seat.playerName}'s Pool
+                  <Badge variant="secondary">{viewingPool.cards.length} cards</Badge>
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                  {viewingPool.cards.map((card, i) => (
+                    <div key={`${card.id}-${i}`} className="rounded-md overflow-hidden bg-secondary aspect-[2.5/3.5] border border-border hover:border-primary/50 transition-colors">
+                      <img
+                        src={`/api/storage${card.imageObjectPath}`}
+                        alt={card.name}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Card Lightbox */}
       {lightboxCard && lightboxIndex !== null && seatState && (

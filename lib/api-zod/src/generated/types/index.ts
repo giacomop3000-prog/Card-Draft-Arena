@@ -15,6 +15,7 @@ export * from './draftInput';
 export * from './draftStatus';
 export * from './draftSummary';
 export * from './errorEnvelope';
+export * from './getAllPools200';
 export * from './healthStatus';
 export * from './joinDraftInput';
 export * from './pickInput';

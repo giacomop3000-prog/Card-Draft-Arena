@@ -155,3 +155,7 @@ export interface UploadUrlResponse {
   metadata?: UploadUrlRequest;
 }
 
+export type GetAllPools200 = {
+  seatPools: Pool[];
+};
+
