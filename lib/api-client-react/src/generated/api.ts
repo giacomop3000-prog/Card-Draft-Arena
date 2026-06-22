@@ -275,6 +275,76 @@ export const useCreateCard = <TError = ErrorType<ErrorEnvelope>,
       return useMutation(getCreateCardMutationOptions(options));
     }
 
+export const getDeleteAllCardsUrl = () => {
+
+
+
+
+  return `/api/cards`
+}
+
+/**
+ * @summary Delete all cards from the library
+ */
+export const deleteAllCards = async ( options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteAllCardsUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteAllCardsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAllCards>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAllCards>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteAllCards'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAllCards>>, void> = () => {
+
+
+          return  deleteAllCards(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAllCardsMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAllCards>>>
+
+    export type DeleteAllCardsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete all cards from the library
+ */
+export const useDeleteAllCards = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAllCards>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAllCards>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteAllCardsMutationOptions(options));
+    }
+
 export const getDeleteCardUrl = (id: number,) => {
 
 

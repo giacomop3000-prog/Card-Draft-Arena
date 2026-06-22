@@ -68,6 +68,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: deleteAllCards
+      tags: [cards]
+      summary: Delete all cards from the library
+      responses:
+        "204":
+          description: All cards deleted
 
   /cards/{id}:
     delete:

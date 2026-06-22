@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useListCards, getListCardsQueryKey, useCreateCard, useDeleteCard } from "@workspace/api-client-react";
+import { useListCards, getListCardsQueryKey, useCreateCard, useDeleteCard, useDeleteAllCards } from "@workspace/api-client-react";
 import { ObjectUploader } from "@workspace/object-storage-web";
 import { Button } from "@/components/ui/button";
 import { Trash2, Image as ImageIcon } from "lucide-react";
@@ -7,6 +7,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export function Cards() {
   const queryClient = useQueryClient();
@@ -14,6 +25,7 @@ export function Cards() {
   const { data: cards, isLoading } = useListCards({ query: { queryKey: getListCardsQueryKey() } });
   const createCard = useCreateCard();
   const deleteCard = useDeleteCard();
+  const deleteAllCards = useDeleteAllCards();
   const [filter, setFilter] = useState("");
 
   const handleDelete = (id: number) => {
@@ -28,6 +40,18 @@ export function Cards() {
     });
   };
 
+  const handleDeleteAll = () => {
+    deleteAllCards.mutate(undefined, {
+      onSuccess: () => {
+        toast({ title: "All cards deleted" });
+        queryClient.invalidateQueries({ queryKey: getListCardsQueryKey() });
+      },
+      onError: () => {
+        toast({ title: "Failed to delete all cards", variant: "destructive" });
+      }
+    });
+  };
+
   const filteredCards = cards?.filter(c => c.name.toLowerCase().includes(filter.toLowerCase())) || [];
 
   return (
@@ -38,7 +62,31 @@ export function Cards() {
           <p className="text-muted-foreground mt-1">Upload and manage cards for your draft pools.</p>
         </div>
         
-        <div className="w-full sm:w-auto">
+        <div className="flex items-center gap-2">
+          {cards && cards.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" disabled={deleteAllCards.isPending} data-testid="button-delete-all-cards">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete All
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete all {cards.length} cards?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently remove every card from the library. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Delete all cards
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
           <ObjectUploader
             maxNumberOfFiles={50}
             maxFileSize={20971520}
