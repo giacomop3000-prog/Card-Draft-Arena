@@ -290,7 +290,19 @@ export function DraftRoom() {
             </div>
           </div>
 
-          {seatState.waitingForPack ? (
+          {seatState.waitingForOthers ? (
+            <div className="flex flex-col items-center justify-center py-24 text-center border rounded-lg bg-card/20">
+              <div className="relative mb-6">
+                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Users className="h-8 w-8 text-primary" />
+                </div>
+                <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-primary animate-ping opacity-50" />
+                <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Pick submitted!</h3>
+              <p className="text-muted-foreground">Waiting for all players to pick before packs rotate...</p>
+            </div>
+          ) : seatState.waitingForPack ? (
             <div className="flex flex-col items-center justify-center py-24 text-center border rounded-lg bg-card/20 animate-pulse">
               <Clock className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
               <h3 className="text-xl font-semibold mb-2">Waiting for next pack...</h3>

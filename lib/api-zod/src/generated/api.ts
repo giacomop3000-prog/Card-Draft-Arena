@@ -177,7 +177,8 @@ export const GetSeatStateResponse = zod.object({
   "picksDone": zod.number().describe('Total picks this seat has made'),
   "totalPicks": zod.number().describe('Total picks this seat needs to make (numPacks \* cardsPerPack)'),
   "draftStatus": zod.enum(['waiting', 'active', 'completed']),
-  "waitingForPack": zod.boolean().optional().describe('True when this seat has picked but is waiting for the passed pack to arrive')
+  "waitingForPack": zod.boolean().optional().describe('True when this seat has picked but is waiting for the passed pack to arrive'),
+  "waitingForOthers": zod.boolean().optional().describe('True when this seat has already picked this round and is waiting for the other players to pick before packs rotate')
 })
 
 
@@ -213,7 +214,8 @@ export const MakePickResponse = zod.object({
   "picksDone": zod.number().describe('Total picks this seat has made'),
   "totalPicks": zod.number().describe('Total picks this seat needs to make (numPacks \* cardsPerPack)'),
   "draftStatus": zod.enum(['waiting', 'active', 'completed']),
-  "waitingForPack": zod.boolean().optional().describe('True when this seat has picked but is waiting for the passed pack to arrive')
+  "waitingForPack": zod.boolean().optional().describe('True when this seat has picked but is waiting for the passed pack to arrive'),
+  "waitingForOthers": zod.boolean().optional().describe('True when this seat has already picked this round and is waiting for the other players to pick before packs rotate')
 })
 
 

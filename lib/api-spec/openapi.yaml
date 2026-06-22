@@ -595,6 +595,9 @@ components:
         waitingForPack:
           type: boolean
           description: True when this seat has picked but is waiting for the passed pack to arrive
+        waitingForOthers:
+          type: boolean
+          description: True when this seat has already picked this round and is waiting for the other players to pick before packs rotate
 
     PickInput:
       type: object

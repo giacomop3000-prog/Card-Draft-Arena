@@ -267,11 +267,23 @@ router.get("/drafts/:id/seat/:seatId", async (req, res): Promise<void> => {
   }
 
   const packRow = currentPackRow[0];
+
+  // Determine if this seat is waiting for others (has more picks than the minimum across all seats)
+  const allSeatsForDraft = await db.select().from(seatsTable).where(eq(seatsTable.draftId, draftId));
+  const allPickCounts = await db
+    .select({ seatId: picksTable.seatId, cnt: count() })
+    .from(picksTable)
+    .where(eq(picksTable.draftId, draftId))
+    .groupBy(picksTable.seatId);
+  const picksCountMap = new Map(allPickCounts.map(p => [p.seatId, Number(p.cnt)]));
+  const minPicksDone = Math.min(...allSeatsForDraft.map(s => picksCountMap.get(s.id) ?? 0));
+  const waitingForOthers = picksDone > minPicksDone;
+
   const cardIds: number[] = JSON.parse(packRow.cardIds);
 
-  // Fetch actual card data
+  // Fetch actual card data (only expose the pack if not waiting for others)
   let currentPack: typeof cardsTable.$inferSelect[] = [];
-  if (cardIds.length > 0) {
+  if (!waitingForOthers && cardIds.length > 0) {
     currentPack = await db.select().from(cardsTable).where(inArray(cardsTable.id, cardIds));
     // Preserve order from cardIds
     const cardMap = new Map(currentPack.map(c => [c.id, c]));
@@ -283,12 +295,13 @@ router.get("/drafts/:id/seat/:seatId", async (req, res): Promise<void> => {
   res.json(GetSeatStateResponse.parse({
     seat,
     currentPack,
-    currentPackId: packRow.id,
+    currentPackId: waitingForOthers ? undefined : packRow.id,
     packNumber: currentPackNum,
     picksDone,
     totalPicks,
     draftStatus: "active",
     waitingForPack: false,
+    waitingForOthers,
   }));
 });
 
@@ -357,18 +370,36 @@ router.post("/drafts/:id/pick", async (req, res): Promise<void> => {
 
     await tx.insert(picksTable).values({ draftId, seatId, cardId, packId });
 
+    // Remove the picked card from the pack; keep the pack at this seat for now
     const remaining = cardIds.filter(id => id !== cardId);
     if (remaining.length === 0) {
       await tx.delete(packsTable).where(eq(packsTable.id, packId));
     } else {
-      const direction = packRow.packNumber % 2 === 1 ? 1 : -1;
-      const currentSeatIdx = seats.findIndex(s => s.id === seatId);
-      const nextSeatIdx = ((currentSeatIdx + direction) + numSeats) % numSeats;
-      const nextSeatId = seats[nextSeatIdx].id;
       await tx.update(packsTable).set({
-        currentSeatId: nextSeatId,
         cardIds: JSON.stringify(remaining),
       }).where(eq(packsTable.id, packId));
+    }
+
+    // Count picks per seat to decide whether to rotate all packs
+    const pickCounts = await tx
+      .select({ seatId: picksTable.seatId, cnt: count() })
+      .from(picksTable)
+      .where(eq(picksTable.draftId, draftId))
+      .groupBy(picksTable.seatId);
+    const picksMap = new Map(pickCounts.map(p => [p.seatId, Number(p.cnt)]));
+    const picksDonePerSeat = seats.map(s => picksMap.get(s.id) ?? 0);
+    const minPicks = Math.min(...picksDonePerSeat);
+    const maxPicks = Math.max(...picksDonePerSeat);
+
+    // Rotate all packs simultaneously only when every player has made the same number of picks
+    if (minPicks === maxPicks) {
+      const allPacks = await tx.select().from(packsTable).where(eq(packsTable.draftId, draftId));
+      for (const pack of allPacks) {
+        const direction = pack.packNumber % 2 === 1 ? 1 : -1;
+        const curIdx = seats.findIndex(s => s.id === pack.currentSeatId);
+        const nextIdx = ((curIdx + direction) + numSeats) % numSeats;
+        await tx.update(packsTable).set({ currentSeatId: seats[nextIdx].id }).where(eq(packsTable.id, pack.id));
+      }
     }
 
     txResult = { ok: true };
@@ -405,21 +436,31 @@ router.post("/drafts/:id/pick", async (req, res): Promise<void> => {
     .orderBy(packsTable.packNumber, packsTable.id)
     .limit(1);
 
+  // Recompute per-seat pick counts for waitingForOthers after the transaction
+  const postPickCounts = await db
+    .select({ seatId: picksTable.seatId, cnt: count() })
+    .from(picksTable)
+    .where(eq(picksTable.draftId, draftId))
+    .groupBy(picksTable.seatId);
+  const postPicksMap = new Map(postPickCounts.map(p => [p.seatId, Number(p.cnt)]));
+  const allSeatsForResponse = await db.select().from(seatsTable).where(eq(seatsTable.draftId, draftId));
+  const minPostPicks = Math.min(...allSeatsForResponse.map(s => postPicksMap.get(s.id) ?? 0));
+  const waitingForOthers = draftStatus === "active" && picksDone > minPostPicks;
+
   let currentPack: typeof cardsTable.$inferSelect[] = [];
   let packNumber = Math.min(Math.floor(picksDone / draft.cardsPerPack) + 1, draft.numPacks);
   let waitingForPack = false;
-
   let currentPackId: number | undefined;
 
   if (newPackRow.length) {
     const newCardIds: number[] = JSON.parse(newPackRow[0].cardIds);
-    if (newCardIds.length > 0) {
+    if (!waitingForOthers && newCardIds.length > 0) {
       currentPack = await db.select().from(cardsTable).where(inArray(cardsTable.id, newCardIds));
       const cardMap = new Map(currentPack.map(c => [c.id, c]));
       currentPack = newCardIds.map(id => cardMap.get(id)).filter(Boolean) as typeof cardsTable.$inferSelect[];
     }
     packNumber = newPackRow[0].packNumber;
-    currentPackId = newPackRow[0].id;
+    currentPackId = waitingForOthers ? undefined : newPackRow[0].id;
   } else if (draftStatus === "active" && allPicksMade < totalPicksNeeded) {
     waitingForPack = true;
   }
@@ -433,6 +474,7 @@ router.post("/drafts/:id/pick", async (req, res): Promise<void> => {
     totalPicks,
     draftStatus,
     waitingForPack,
+    waitingForOthers,
   }));
 });
 

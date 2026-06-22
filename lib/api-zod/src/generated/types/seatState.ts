@@ -24,4 +24,6 @@ export interface SeatState {
   draftStatus: SeatStateDraftStatus;
   /** True when this seat has picked but is waiting for the passed pack to arrive */
   waitingForPack?: boolean;
+  /** True when this seat has already picked this round and is waiting for the other players to pick before packs rotate */
+  waitingForOthers?: boolean;
 }
