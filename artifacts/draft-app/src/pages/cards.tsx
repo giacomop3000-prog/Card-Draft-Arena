@@ -105,7 +105,7 @@ export function Cards() {
           {filteredCards.map((card) => (
             <div key={card.id} className="group relative rounded-md overflow-hidden bg-secondary aspect-[2.5/3.5] border border-border transition-all hover:border-primary">
               <img 
-                src={`${import.meta.env.VITE_API_URL}/api/storage${card.imageObjectPath}`}
+                src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/uploads${card.imageObjectPath}`}
                 alt={card.name}
                 className="absolute inset-0 w-full h-full object-cover"
                 loading="lazy"
