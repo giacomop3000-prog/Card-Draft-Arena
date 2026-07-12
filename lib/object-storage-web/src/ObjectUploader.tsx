@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import Uppy from "@uppy/core";
 import type { UppyFile, UploadResult } from "@uppy/core";
 import DashboardModal from "@uppy/react/dashboard-modal";
-import XHRUpload from "@uppy/xhr-upload";
+import AwsS3 from "@uppy/aws-s3";
 import "@uppy/core/css/style.min.css";
 import "@uppy/dashboard/css/style.min.css";
 
@@ -43,18 +43,18 @@ export function ObjectUploader({
       restrictions: { maxNumberOfFiles, maxFileSize },
       autoProceed: false,
     })
-      .use(XHRUpload, {
-        endpoint: "placeholder",
-        method: "PUT",
-        formData: false,
-        getUploadParameters: async (file) => {
-          const params = await onGetUploadParametersRef.current(file);
-          return {
-            method: params.method,
-            url: params.url,
-            headers: params.headers ?? {},
-            fields: {},
-          };
+      .use(AwsS3, {
+        shouldUseMultipart: false,
+        getUploadParameters: (file) => onGetUploadParametersRef.current(file),
+        async uploadPartBytes({ signature, body, signal }: any) {
+          const { method = "PUT", url, headers = {} } = signature;
+          const response = await fetch(url, { method, headers, body, signal });
+          if (!response.ok) throw new Error(`Upload failed: ${response.status}`);
+          const etag =
+            response.headers.get("ETag") ??
+            response.headers.get("etag") ??
+            `"${Date.now()}"`;
+          return { ETag: etag };
         },
       })
       .on("complete", (result) => {
