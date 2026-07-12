@@ -18,6 +18,11 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Users, User, Play, Clock, Layers, CheckCircle2, ChevronRight, ChevronLeft, X, ZoomIn } from "lucide-react";
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+function cardImageUrl(objectPath: string) {
+  return `${SUPABASE_URL}/storage/v1/object/public/uploads${objectPath}`;
+}
+
 export function DraftRoom() {
   const { id } = useParams<{ id: string }>();
   const draftId = parseInt(id || "0", 10);
@@ -33,7 +38,6 @@ export function DraftRoom() {
     query: { 
       enabled: !!draftId, 
       queryKey: getGetDraftQueryKey(draftId),
-      // Always poll while the draft is live — catches waiting→active and active→completed transitions
       refetchInterval: (query) => {
         if (!query.state.data) return 3000;
         return query.state.data.status !== 'completed' ? 3000 : false;
@@ -48,7 +52,6 @@ export function DraftRoom() {
     query: {
       enabled: !!draftId && !!seatId && draftIsActive,
       queryKey: getGetSeatStateQueryKey(draftId, seatId || 0),
-      // Poll continuously while the draft is active — not just when waiting
       refetchInterval: draftIsActive ? 2000 : false,
     }
   });
@@ -98,7 +101,6 @@ export function DraftRoom() {
     return () => window.removeEventListener("keydown", onKey);
   }, [lightboxIndex, prevCard, nextCard, closeLightbox]);
 
-  // Close lightbox automatically when the pack changes (user picked or new pack arrived)
   useEffect(() => {
     setLightboxIndex(null);
   }, [seatState?.currentPackId]);
@@ -140,7 +142,6 @@ export function DraftRoom() {
     makePick.mutate({ id: draftId, data: { seatId, cardId, packId } }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetSeatStateQueryKey(draftId, seatId) });
-        // Immediately refresh draft so completed status shows without waiting for the poll
         queryClient.invalidateQueries({ queryKey: getGetDraftQueryKey(draftId) });
       },
       onError: (err) => {
@@ -326,7 +327,7 @@ export function DraftRoom() {
                     data-testid={`button-view-${card.id}`}
                   >
                     <img 
-                      src={`/api/storage${card.imageObjectPath}`} 
+                      src={cardImageUrl(card.imageObjectPath)}
                       alt={card.name}
                       className="absolute inset-0 w-full h-full object-cover"
                       loading="lazy"
@@ -360,7 +361,6 @@ export function DraftRoom() {
               </CardContent>
             </Card>
 
-            {/* Player tabs */}
             <div className="flex flex-wrap gap-2">
               {allPools.seatPools.map((sp) => (
                 <button
@@ -380,7 +380,6 @@ export function DraftRoom() {
               ))}
             </div>
 
-            {/* Selected player's pool */}
             {viewingPool && (
               <div>
                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -392,7 +391,7 @@ export function DraftRoom() {
                   {viewingPool.cards.map((card, i) => (
                     <div key={`${card.id}-${i}`} className="rounded-md overflow-hidden bg-secondary aspect-[2.5/3.5] border border-border hover:border-primary/50 transition-colors">
                       <img
-                        src={`/api/storage${card.imageObjectPath}`}
+                        src={cardImageUrl(card.imageObjectPath)}
                         alt={card.name}
                         className="w-full h-full object-cover"
                         loading="lazy"
@@ -412,7 +411,6 @@ export function DraftRoom() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
           onClick={closeLightbox}
         >
-          {/* Close */}
           <button
             className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
             onClick={closeLightbox}
@@ -421,12 +419,10 @@ export function DraftRoom() {
             <X className="h-5 w-5" />
           </button>
 
-          {/* Counter */}
           <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white/60 text-sm font-medium tabular-nums">
             {lightboxIndex + 1} / {lightboxPack.length}
           </div>
 
-          {/* Prev arrow */}
           <button
             className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-3 transition-colors disabled:opacity-30"
             onClick={(e) => { e.stopPropagation(); prevCard(); }}
@@ -436,13 +432,12 @@ export function DraftRoom() {
             <ChevronLeft className="h-6 w-6" />
           </button>
 
-          {/* Card image */}
           <div
             className="flex flex-col items-center gap-6 px-20"
             onClick={(e) => e.stopPropagation()}
           >
             <img
-              src={`/api/storage${lightboxCard.imageObjectPath}`}
+              src={cardImageUrl(lightboxCard.imageObjectPath)}
               alt={lightboxCard.name}
               className="max-h-[75vh] max-w-[min(420px,80vw)] w-auto object-contain rounded-xl shadow-2xl"
             />
@@ -463,7 +458,6 @@ export function DraftRoom() {
             </div>
           </div>
 
-          {/* Next arrow */}
           <button
             className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-3 transition-colors disabled:opacity-30"
             onClick={(e) => { e.stopPropagation(); nextCard(); }}
