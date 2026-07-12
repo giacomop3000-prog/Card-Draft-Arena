@@ -81,9 +81,24 @@ export function ObjectUploader({
       autoProceed: false,
     })
       .use(AwsS3, {
-        shouldUseMultipart: false,
-        getUploadParameters: (file) => onGetUploadParametersRef.current(file),
-      })
+  shouldUseMultipart: false,
+  getUploadParameters: (file) => onGetUploadParametersRef.current(file),
+  async uploadPartBytes({ signature, body, onProgress, onComplete, signal }) {
+    const { method, url, headers } = signature;
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url);
+    Object.entries(headers ?? {}).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable) onProgress(e.loaded, e.total);
+    });
+    xhr.addEventListener("load", () => {
+      onComplete({ ETag: xhr.getResponseHeader("ETag") ?? `"${Date.now()}"` });
+    });
+    xhr.addEventListener("error", () => onComplete({ ETag: `"error"` }));
+    signal?.addEventListener("abort", () => xhr.abort());
+    xhr.send(body as BodyInit);
+  },
+})
       .on("complete", (result) => {
         onCompleteRef.current?.(result);
       })
