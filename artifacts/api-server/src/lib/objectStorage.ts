@@ -78,7 +78,7 @@ export class ObjectStorageService {
     try {
       const url = new URL(rawPath);
       const match = url.pathname.match(/\/storage\/v1\/object\/(?:upload\/sign|sign)\/[^/]+\/(.+)/);
-      if (match) return `/objects/${match[1]}`;
+      if (match) return `/${match[1]}`;
     } catch {}
     return rawPath;
   }
