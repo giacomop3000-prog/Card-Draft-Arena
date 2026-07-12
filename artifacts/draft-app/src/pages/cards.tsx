@@ -44,7 +44,7 @@ export function Cards() {
             maxFileSize={20971520}
             buttonClassName="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
             onGetUploadParameters={async (file) => {
-              const res = await fetch("/api/storage/uploads/request-url", {
+              const res = await fetch(`${import.meta.env.VITE_API_URL}/api/storage/uploads/request-url`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -105,7 +105,7 @@ export function Cards() {
           {filteredCards.map((card) => (
             <div key={card.id} className="group relative rounded-md overflow-hidden bg-secondary aspect-[2.5/3.5] border border-border transition-all hover:border-primary">
               <img 
-                src={`/api/storage${card.imageObjectPath}`} 
+                src={`${import.meta.env.VITE_API_URL}/api/storage${card.imageObjectPath}`}
                 alt={card.name}
                 className="absolute inset-0 w-full h-full object-cover"
                 loading="lazy"
